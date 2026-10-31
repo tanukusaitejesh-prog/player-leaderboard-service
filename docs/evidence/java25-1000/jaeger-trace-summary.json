@@ -1,0 +1,25 @@
+{
+  "traceID": "faae96f4d2bec2ab2961b141feae977c",
+  "spans": [
+    {
+      "operationName": "score-events send",
+      "durationUs": 12995
+    },
+    {
+      "operationName": "score.persist",
+      "durationUs": 4907
+    },
+    {
+      "operationName": "http post /api/v1/scores",
+      "durationUs": 15660
+    },
+    {
+      "operationName": "score-events receive",
+      "durationUs": 2922
+    },
+    {
+      "operationName": "outbox.publish",
+      "durationUs": 2878
+    }
+  ]
+}

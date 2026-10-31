@@ -1,0 +1,7 @@
+CPU(s):                                  4
+Model name:                              AMD EPYC 9V45 96-Core Processor
+               total        used        free      shared  buff/cache   available
+Mem:            15Gi       887Mi        14Gi        41Mi       878Mi        14Gi
+Linux 7.0.0-1017-azure
+Docker 29.4.2
+commit f0ea07755c6ef84f7ebb6f4b46686ba894f6d5ac

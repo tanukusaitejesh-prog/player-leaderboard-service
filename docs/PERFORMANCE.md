@@ -6,7 +6,7 @@ All numbers come from k6 runs saved in [`docs/evidence/`](evidence). Each config
 
 | | |
 |---|---|
-| Machine | GitHub Actions `ubuntu-latest` runner: 4 vCPU AMD EPYC 7763, 16 GB RAM, Linux, Docker 29.4.2 |
+| Machine | GitHub Actions `ubuntu-latest` runner: 4 vCPU AMD EPYC 7763 (Java 17 runs) or EPYC 9V45/9V74 (Java 25 runs), 16 GB RAM, Linux, Docker 29.4.2 |
 | Layout | App, PostgreSQL, Redis, Kafka, Prometheus, Grafana, Jaeger and k6 all on that one machine, in Docker |
 | App container | 1 GB limit, Hikari pool of 10, 100% trace sampling exported to Jaeger |
 | Workload | 500 players, 45% `GET top?limit=10`, 45% rank lookup, 10% `POST /scores` with a unique key |
@@ -14,7 +14,7 @@ All numbers come from k6 runs saved in [`docs/evidence/`](evidence). Each config
 
 The load generator competes with the service for the same 4 CPUs, and it's a shared CI machine, so treat these numbers as a floor rather than a production claim. Only steady-state requests (`steady:yes` in k6) are counted, which excludes setup and the ramp.
 
-## Result: 2000 iterations/s for 180 s
+## Result on Java 17: 2000 iterations/s for 180 s
 
 The p99 threshold was set to 150 ms after exploratory runs showed 93 ms at this rate, then verified here.
 
@@ -64,6 +64,31 @@ That error means the machine is out of ephemeral TCP ports. The rank lookup used
 | App CPU peak (100% = one core) | 253% | 72% |
 
 The "before" code ran from a temporary branch (the commit in `before-fix-1000/machine.txt`) that was the final code with only `RedisLeaderboardStore` put back to its pipeline version, which is in `main`'s history at `c5fc650`. The `before-fix-1000` runs didn't save app logs, because their workflow succeeded. The `BindException` evidence comes from the 1500/s run ([count and message](evidence/explore-1500/bind-exception-count.txt)).
+
+## Re-measured on Java 25
+
+The service moved from Java 17 to Java 25 (Temurin 25.0.5, confirmed with `java -version` inside the container: [`java-version.txt`](evidence/java25-2000/java-version.txt)). I reran the same two configurations on `main`, 3 runs each, with the same workflow and settings. Raw files: [`evidence/java25-2000`](evidence/java25-2000) and [`evidence/java25-1000`](evidence/java25-1000).
+
+**These runs are not a clean JVM-only comparison.** GitHub assigned them newer runner CPUs (AMD EPYC 9V45 and 9V74) than the Java 17 runs (EPYC 7763), and the 1000/s and 2000/s runs landed on different CPUs from each other. Shared runners vary, so read the table as "Java 25 works and performs in the same range", not "Java 25 is faster".
+
+| Configuration | Java 17 (EPYC 7763) | Java 25 (EPYC 9V45 / 9V74) |
+|---|---|---|
+| 2000/s: throughput | 1998 req/s | 2000 req/s (2000 / 2000 / 2000) |
+| 2000/s: p50 | 0.98 ms | 0.49 ms |
+| 2000/s: p95 | 7.10 ms | 2.94 ms (2.90–3.08) |
+| 2000/s: p99 | 18.99 ms (15.12–30.85) | **6.86 ms** (6.67–7.07) |
+| 2000/s: failed (steady state) | 0% | 0% |
+| 1000/s, Lua lookup: p50 | 0.37 ms | 0.48 ms |
+| 1000/s, Lua lookup: p95 | 1.93 ms | 2.18 ms (1.99–2.56) |
+| 1000/s, Lua lookup: p99 | **4.14 ms** (3.40–4.43) | **13.49 ms** (13.16–21.16) |
+| 1000/s: failed (steady state) | 0% | 0% |
+
+What I take from this:
+
+- Nothing broke on Java 25: 0% failed requests in steady state, `outbox.publish.failures` and `leaderboard.consumer.deadlettered` at 0, no span export failures.
+- The 2000/s p99 is lower on Java 25, but the machine was different, so I don't attribute that to the JVM.
+- The 1000/s p99 is higher on Java 25 (13.49 ms against 4.14 ms), even though that run had half the load of the 2000/s run. That pattern points to runner noise (Hikari pending peaked at 1 and the app reached full CPU in this run) more than to the code, but I haven't isolated the cause, so I don't claim it.
+- The 358 ms → 4 ms rank-lookup comparison above was measured on Java 17, on identical conditions for both sides. On Java 25 the fixed code gives 13.49 ms at the same rate, still far below the 358 ms of the pipeline version. I did not rerun the pipeline version on Java 25.
 
 ## Where it saturates now
 
