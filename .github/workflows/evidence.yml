@@ -28,6 +28,9 @@ on:
         description: Hikari pool size
         default: '10'
 
+permissions:
+  contents: write
+
 jobs:
   evidence:
     runs-on: ubuntu-latest
@@ -154,6 +157,25 @@ jobs:
       - name: Save service logs on failure
         if: failure()
         run: docker compose --profile app --profile observability logs --no-color --tail 300 > "$OUT/compose-logs.txt"
+
+      - name: Record the JVM running in the container
+        if: always()
+        run: docker compose --profile app exec -T app java -version > "$OUT/java-version.txt" 2>&1 || true
+
+      - name: Publish raw text results to a branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Text and JSON only (no screenshots), so the numbers can be read without downloading the artifact.
+          pub=$(mktemp -d)
+          cp "$OUT"/*.json "$OUT"/*.txt "$OUT"/*.csv "$OUT"/*.log "$pub"/ 2>/dev/null || true
+          cd "$pub"
+          git init -q -b "results/${{ inputs.label }}"
+          git add .
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Raw evidence for ${{ inputs.label }} (workflow run $GITHUB_RUN_ID)"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD
 
       - uses: actions/upload-artifact@v4
         if: always()
