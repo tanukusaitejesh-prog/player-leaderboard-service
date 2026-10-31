@@ -115,12 +115,13 @@ jobs:
           const out = process.env.GITHUB_WORKSPACE + '/' + process.env.OUT;
           (async () => {
             const browser = await chromium.launch();
-            const page = await browser.newPage({ viewport: { width: 1600, height: 1400 } });
+            const page = await browser.newPage({ viewport: { width: 1600, height: 2400 } });
             page.on('pageerror', (e) => console.log('page error:', e.message));
             await page.goto('http://localhost:3000/d/leaderboard?orgId=1&from=now-30m&to=now&kiosk');
-            await page.getByText('Request rate by endpoint').waitFor({ timeout: 60000 }).catch((e) => console.log(e.message));
+            await page.locator('canvas').first().waitFor({ timeout: 60000 }).catch((e) => console.log(e.message));
             await page.waitForTimeout(15000);
-            await page.screenshot({ path: `${out}/grafana-dashboard.png`, fullPage: true });
+            // A full-page capture resizes the viewport, which makes Grafana drop its panels.
+            await page.screenshot({ path: `${out}/grafana-dashboard.png` });
             const id = fs.readFileSync(`${out}/trace-id.txt`, 'utf8').trim();
             await page.goto(`http://localhost:16686/trace/${id}`);
             await page.waitForTimeout(8000);
