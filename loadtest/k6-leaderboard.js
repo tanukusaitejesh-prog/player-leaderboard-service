@@ -12,7 +12,6 @@ const RATE = Number(__ENV.RATE || 500);
 const PLAYERS = Number(__ENV.PLAYERS || 500);
 const STEADY_SECONDS = Number(__ENV.STEADY_SECONDS || 180);
 const RAMP_MS = 60000;
-const GAME_ID = __ENV.GAME_ID || `load-${Date.now()}`;
 const P99_TARGET_MS = __ENV.P99_TARGET_MS || 600000;
 
 export const options = {
@@ -49,7 +48,9 @@ function post(path, body, headers, tags) {
 }
 
 export function setup() {
+  // Module scope runs once per VU, so the game id has to come from setup to be shared.
   const stamp = Date.now() % 1000000;
+  const gameId = `load-${stamp}`;
   const players = [];
   for (let i = 0; i < PLAYERS; i++) {
     const player = post('/api/v1/players', { username: `k${stamp}_${i}` });
@@ -57,7 +58,7 @@ export function setup() {
       exec.test.abort(`could not create player: ${player.status} ${player.body}`);
     }
     const playerId = player.json('id');
-    const session = post('/api/v1/sessions', { playerId, gameId: GAME_ID });
+    const session = post('/api/v1/sessions', { playerId, gameId });
     if (session.status !== 201) {
       exec.test.abort(`could not create session: ${session.status} ${session.body}`);
     }
@@ -74,9 +75,9 @@ export function setup() {
   });
   const last = players[players.length - 1];
   for (let waited = 0; waited < 120; waited++) {
-    const standing = http.get(`${BASE_URL}/api/v1/leaderboards/${GAME_ID}/players/${last.playerId}`);
+    const standing = http.get(`${BASE_URL}/api/v1/leaderboards/${gameId}/players/${last.playerId}`);
     if (standing.status === 200) {
-      return { players };
+      return { gameId, players };
     }
     sleep(1);
   }
@@ -89,12 +90,12 @@ export default function (data) {
   const player = data.players[Math.floor(Math.random() * data.players.length)];
 
   if (roll < 0.45) {
-    const res = http.get(`${BASE_URL}/api/v1/leaderboards/${GAME_ID}/top?limit=10`, {
+    const res = http.get(`${BASE_URL}/api/v1/leaderboards/${data.gameId}/top?limit=10`, {
       tags: { name: 'GET top', steady },
     });
-    check(res, { 'top 200': (r) => r.status === 200 });
+    check(res, { 'top has 10 rows': (r) => r.status === 200 && r.json().length === 10 });
   } else if (roll < 0.9) {
-    const res = http.get(`${BASE_URL}/api/v1/leaderboards/${GAME_ID}/players/${player.playerId}`, {
+    const res = http.get(`${BASE_URL}/api/v1/leaderboards/${data.gameId}/players/${player.playerId}`, {
       tags: { name: 'GET rank', steady },
     });
     check(res, { 'rank 200': (r) => r.status === 200 });
