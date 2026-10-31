@@ -90,3 +90,5 @@ Rank is by best score per player per game. Ties follow Redis's `ZREVRANGE` order
 10. **No `logback-spring.xml`.** Boot's `logging.pattern.correlation` adds trace and span ids to the log pattern, and `logging.structured.format.console: ecs` gives JSON logs under the `docker` profile, so a custom file wasn't needed.
 11. **`IllegalArgumentException` isn't retried.** A malformed event won't get better on retry, so it goes straight to the DLT. Other failures get the 3 retries.
 12. **Added `OTLP_EXPORT_ENABLED`.** It defaults to off in Compose, because without the `observability` profile there's no Jaeger and the exporter logs an error on every batch.
+13. **k6 runs with `--network host`** in the Evidence workflow rather than `--add-host`, since it's a Linux runner. The `--add-host` form is in the README for Docker Desktop.
+14. **Screenshots are taken by Playwright in the Evidence workflow**, not by hand, since the stack only ever ran on a runner.
