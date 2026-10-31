@@ -10,6 +10,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import dev.tejesh.leaderboard.outbox.OutboxEvent;
+import dev.tejesh.leaderboard.outbox.OutboxRepository;
+import dev.tejesh.leaderboard.player.Player;
+import dev.tejesh.leaderboard.player.PlayerRepository;
 import dev.tejesh.leaderboard.session.GameSession;
 import dev.tejesh.leaderboard.session.GameSessionRepository;
 import dev.tejesh.leaderboard.web.ConflictException;
@@ -20,6 +28,7 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class ScoreServiceTest {
 
@@ -28,8 +37,15 @@ class ScoreServiceTest {
 
   private final ScoreRepository scores = mock(ScoreRepository.class);
   private final GameSessionRepository sessions = mock(GameSessionRepository.class);
+  private final PlayerRepository players = mock(PlayerRepository.class);
+  private final OutboxRepository outbox = mock(OutboxRepository.class);
+  private final ObjectMapper json =
+      JsonMapper.builder()
+          .addModule(new JavaTimeModule())
+          .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+          .build();
   private final ScoreService service =
-      new ScoreService(scores, sessions, Clock.fixed(NOW, ZoneOffset.UTC));
+      new ScoreService(scores, sessions, players, outbox, json, Clock.fixed(NOW, ZoneOffset.UTC));
 
   private final UUID playerId = UUID.randomUUID();
   private final GameSession session = new GameSession(UUID.randomUUID(), playerId, "tetris", NOW);
@@ -40,6 +56,7 @@ class ScoreServiceTest {
     when(sessions.findById(session.getId())).thenReturn(Optional.of(session));
     when(scores.insertIfAbsent(any(), any(), any(), anyString(), anyInt(), anyString(), any()))
         .thenReturn(1);
+    when(players.findById(playerId)).thenReturn(Optional.of(new Player(playerId, "neo", NOW)));
 
     ScoreSubmission result = service.submit(KEY, playerId, session.getId(), 100);
 
@@ -47,6 +64,13 @@ class ScoreServiceTest {
     assertThat(result.score().getGameId()).isEqualTo("tetris");
     assertThat(result.score().getPoints()).isEqualTo(100);
     assertThat(result.score().getSubmittedAt()).isEqualTo(NOW);
+
+    ArgumentCaptor<OutboxEvent> event = ArgumentCaptor.forClass(OutboxEvent.class);
+    verify(outbox).insert(event.capture());
+    assertThat(event.getValue().topic()).isEqualTo("score-events");
+    assertThat(event.getValue().eventKey()).isEqualTo("tetris");
+    assertThat(event.getValue().payload())
+        .contains(result.score().getId().toString(), "\"username\":\"neo\"", "\"points\":100");
   }
 
   @Test
@@ -61,6 +85,7 @@ class ScoreServiceTest {
     assertThat(result.created()).isFalse();
     assertThat(result.score()).isSameAs(original);
     verify(scores, never()).insertIfAbsent(any(), any(), any(), any(), anyInt(), any(), any());
+    verify(outbox, never()).insert(any());
   }
 
   @Test
