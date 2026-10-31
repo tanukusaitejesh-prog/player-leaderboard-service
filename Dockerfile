@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17.0.20_8-jdk-jammy AS build
+FROM eclipse-temurin:25.0.5_8-jdk-jammy AS build
 WORKDIR /src
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
@@ -8,7 +8,7 @@ RUN ./mvnw -B -ntp -DskipTests package \
     && java -Djarmode=tools -jar target/player-leaderboard-service-*.jar \
        extract --layers --launcher --destination /extracted
 
-FROM eclipse-temurin:17.0.20_8-jre-jammy
+FROM eclipse-temurin:25.0.5_8-jre-jammy
 RUN command -v curl >/dev/null \
     || (apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*)
 RUN useradd --system --no-create-home --uid 10001 app
