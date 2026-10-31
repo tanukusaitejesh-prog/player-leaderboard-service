@@ -1,0 +1,9 @@
+target
+.git
+.github
+.env
+docs
+loadtest
+ops
+scripts
+*.md

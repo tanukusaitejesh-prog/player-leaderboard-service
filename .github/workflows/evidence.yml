@@ -1,0 +1,143 @@
+# Runs the full stack on a runner and collects raw evidence: k6 summaries, Prometheus peaks,
+# a Jaeger trace and dashboard screenshots. Everything shares one 4-vCPU machine, so the numbers
+# are a floor, not a production claim.
+name: Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      label:
+        description: Name for this configuration
+        default: baseline
+      rate:
+        description: Steady-state iterations per second
+        default: '500'
+      runs:
+        description: Number of k6 runs
+        default: '3'
+      steady_seconds:
+        description: Steady-state duration per run
+        default: '180'
+      p99_target_ms:
+        description: p99 threshold; leave the default for an exploratory run
+        default: '600000'
+      sampling:
+        description: Trace sampling probability
+        default: '1.0'
+      pool_size:
+        description: Hikari pool size
+        default: '10'
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OUT: evidence/${{ inputs.label }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record machine
+        run: |
+          mkdir -p "$OUT" && chmod -R 777 evidence
+          { lscpu | grep -E 'Model name|^CPU\(s\)'; free -h | head -2; uname -sr; docker version --format 'Docker {{.Server.Version}}'; echo "commit $GITHUB_SHA"; } | tee "$OUT/machine.txt"
+
+      - name: Start stack from cold
+        run: |
+          cp .env.example .env
+          sed -i "s/^OTLP_EXPORT_ENABLED=.*/OTLP_EXPORT_ENABLED=true/" .env
+          sed -i "s/^TRACING_SAMPLING_PROBABILITY=.*/TRACING_SAMPLING_PROBABILITY=${{ inputs.sampling }}/" .env
+          sed -i "s/^DB_POOL_SIZE=.*/DB_POOL_SIZE=${{ inputs.pool_size }}/" .env
+          docker compose --profile app --profile observability up -d --build
+
+      - name: Smoke test
+        shell: pwsh
+        run: ./scripts/smoke.ps1 -SkipUp
+
+      - name: Save metrics scrape and trace
+        run: |
+          sleep 15
+          curl -fsS localhost:8080/actuator/prometheus > "$OUT/actuator-prometheus.txt"
+          curl -fsS 'localhost:16686/api/services' > "$OUT/jaeger-services.json"
+          curl -fsS -G localhost:16686/api/traces \
+            --data-urlencode 'service=player-leaderboard-service' \
+            --data-urlencode 'operation=http post /api/v1/scores' \
+            --data-urlencode 'limit=5' > "$OUT/jaeger-score-traces.json"
+          jq -r '[.data[] | {id: .traceID, spans: (.spans | length)}] | sort_by(-.spans) | .[0].id' \
+            "$OUT/jaeger-score-traces.json" > "$OUT/trace-id.txt"
+          jq '[.data[] | {traceID, spans: [.spans[] | {operationName, durationUs: .duration}]}] | max_by(.spans | length)' \
+            "$OUT/jaeger-score-traces.json" | tee "$OUT/jaeger-trace-summary.json"
+
+      - name: Run k6
+        if: ${{ inputs.runs != '0' }}
+        run: |
+          (while true; do docker stats --no-stream --format '{{.Name}},{{.CPUPerc}},{{.MemUsage}}' >> "$OUT/docker-stats.csv"; sleep 15; done) &
+          STATS=$!
+          status=0
+          for i in $(seq 1 ${{ inputs.runs }}); do
+            docker run --rm -i --network host -v "$PWD/$OUT:/out" \
+              -e BASE_URL=http://localhost:8080 -e RATE=${{ inputs.rate }} \
+              -e STEADY_SECONDS=${{ inputs.steady_seconds }} -e P99_TARGET_MS=${{ inputs.p99_target_ms }} \
+              grafana/k6:1.8.2 run --summary-export "/out/k6-run-$i.json" - \
+              < loadtest/k6-leaderboard.js > "$OUT/k6-run-$i.log" 2>&1 || status=$?
+            tail -40 "$OUT/k6-run-$i.log"
+            sleep 30
+          done
+          kill $STATS
+          echo "K6_STATUS=$status" >> "$GITHUB_ENV"
+
+      - name: Query Prometheus peaks
+        if: always()
+        run: |
+          prom() { curl -fsS -G localhost:9090/api/v1/query --data-urlencode "query=$1"; echo; }
+          {
+            echo "outbox_pending peak"; prom 'max_over_time(outbox_pending[30m])'
+            echo "consumer lag peak"; prom 'max_over_time(kafka_consumer_fetch_manager_records_lag_max[30m])'
+            echo "hikari pending peak"; prom 'max_over_time(hikaricp_connections_pending[30m])'
+            echo "hikari active peak"; prom 'max_over_time(hikaricp_connections_active[30m])'
+            echo "process cpu peak"; prom 'max_over_time(process_cpu_usage[30m])'
+            echo "system cpu peak"; prom 'max_over_time(system_cpu_usage[30m])'
+            echo "gc pause seconds per second peak"; prom 'max_over_time(rate(jvm_gc_pause_seconds_sum[1m])[30m:15s])'
+            echo "outbox failures"; prom 'outbox_publish_failures_total'
+            echo "dead lettered"; prom 'leaderboard_consumer_deadlettered_total'
+          } | tee "$OUT/prometheus-peaks.txt"
+
+      - name: Take screenshots
+        if: always()
+        run: |
+          mkdir -p /tmp/shots && cd /tmp/shots
+          npm init -y > /dev/null
+          npm install --silent playwright@1.49.1
+          npx playwright install --with-deps chromium > /dev/null
+          cat > shoot.js <<'EOF'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+          const out = process.env.GITHUB_WORKSPACE + '/' + process.env.OUT;
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage({ viewport: { width: 1600, height: 1400 } });
+            await page.goto('http://localhost:3000/d/leaderboard?orgId=1&from=now-30m&to=now&kiosk');
+            await page.waitForTimeout(15000);
+            await page.screenshot({ path: `${out}/grafana-dashboard.png`, fullPage: true });
+            const id = fs.readFileSync(`${out}/trace-id.txt`, 'utf8').trim();
+            await page.goto(`http://localhost:16686/trace/${id}`);
+            await page.waitForTimeout(8000);
+            await page.screenshot({ path: `${out}/jaeger-trace.png`, fullPage: true });
+            await browser.close();
+          })();
+          EOF
+          node shoot.js
+
+      - name: Save service logs on failure
+        if: failure()
+        run: docker compose --profile app --profile observability logs --no-color --tail 300 > "$OUT/compose-logs.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidence-${{ inputs.label }}
+          path: evidence/
+
+      - name: Fail if a k6 threshold failed
+        if: ${{ env.K6_STATUS != '' && env.K6_STATUS != '0' }}
+        run: exit 1

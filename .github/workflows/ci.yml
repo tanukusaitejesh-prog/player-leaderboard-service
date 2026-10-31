@@ -33,6 +33,11 @@ jobs:
             target/surefire-reports/
             target/failsafe-reports/
           if-no-files-found: warn
-      - name: Build Docker image
-        if: hashFiles('Dockerfile') != ''
-        run: docker build -t player-leaderboard-service:ci .
+      - name: Check formatting
+        run: ./mvnw -B -ntp spotless:check
+      - name: Smoke test the stack from cold
+        shell: pwsh
+        run: ./scripts/smoke.ps1
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose --profile app logs --no-color --tail 200
