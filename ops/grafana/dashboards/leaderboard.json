@@ -1,0 +1,469 @@
+{
+    "uid":  "leaderboard",
+    "title":  "Leaderboard Service",
+    "schemaVersion":  39,
+    "version":  1,
+    "refresh":  "5s",
+    "time":  {
+                 "to":  "now",
+                 "from":  "now-15m"
+             },
+    "tags":  [
+                 "leaderboard"
+             ],
+    "panels":  [
+                   {
+                       "id":  1,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "reqps"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  0,
+                                       "w":  12,
+                                       "x":  0,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{method}} {{uri}}",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "sum by (method, uri) (rate(http_server_requests_seconds_count[1m]))",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "Request rate by endpoint"
+                   },
+                   {
+                       "id":  2,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "percentunit"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  0,
+                                       "w":  12,
+                                       "x":  12,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "5xx share",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[1m])) / sum(rate(http_server_requests_seconds_count[1m]))",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "Error rate (5xx share)"
+                   },
+                   {
+                       "id":  3,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "s"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  8,
+                                       "w":  12,
+                                       "x":  0,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{method}} {{uri}}",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "histogram_quantile(0.50, sum by (le, method, uri) (rate(http_server_requests_seconds_bucket[1m])))",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "Latency p50 by endpoint"
+                   },
+                   {
+                       "id":  4,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "s"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  8,
+                                       "w":  12,
+                                       "x":  12,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{method}} {{uri}}",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "histogram_quantile(0.95, sum by (le, method, uri) (rate(http_server_requests_seconds_bucket[1m])))",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "Latency p95 by endpoint"
+                   },
+                   {
+                       "id":  5,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "s"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  16,
+                                       "w":  12,
+                                       "x":  0,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{method}} {{uri}}",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "histogram_quantile(0.99, sum by (le, method, uri) (rate(http_server_requests_seconds_bucket[1m])))",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "Latency p99 by endpoint"
+                   },
+                   {
+                       "id":  6,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "short"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  16,
+                                       "w":  12,
+                                       "x":  12,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "pending",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "outbox_pending",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "Outbox pending"
+                   },
+                   {
+                       "id":  7,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "short"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  24,
+                                       "w":  12,
+                                       "x":  0,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "lag",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "max(kafka_consumer_fetch_manager_records_lag_max)",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "Consumer lag (max records)"
+                   },
+                   {
+                       "id":  8,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "ops"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  24,
+                                       "w":  12,
+                                       "x":  12,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "submitted",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "rate(leaderboard_scores_submitted_total[1m])",
+                                           "refId":  "A"
+                                       },
+                                       {
+                                           "legendFormat":  "processed",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "rate(leaderboard_consumer_processed_total[1m])",
+                                           "refId":  "B"
+                                       },
+                                       {
+                                           "legendFormat":  "dead-lettered",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "rate(leaderboard_consumer_deadlettered_total[1m])",
+                                           "refId":  "C"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "Scores and consumer throughput"
+                   },
+                   {
+                       "id":  9,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "bytes"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  32,
+                                       "w":  12,
+                                       "x":  0,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "used",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "sum(jvm_memory_used_bytes{area=\"heap\"})",
+                                           "refId":  "A"
+                                       },
+                                       {
+                                           "legendFormat":  "max",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "sum(jvm_memory_max_bytes{area=\"heap\"})",
+                                           "refId":  "B"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "JVM heap"
+                   },
+                   {
+                       "id":  10,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "s"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  32,
+                                       "w":  12,
+                                       "x":  12,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "seconds paused per second",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "sum(rate(jvm_gc_pause_seconds_sum[1m]))",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "GC pause time"
+                   },
+                   {
+                       "id":  11,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "short"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  40,
+                                       "w":  12,
+                                       "x":  0,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "active",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "hikaricp_connections_active",
+                                           "refId":  "A"
+                                       },
+                                       {
+                                           "legendFormat":  "idle",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "hikaricp_connections_idle",
+                                           "refId":  "B"
+                                       },
+                                       {
+                                           "legendFormat":  "pending",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "hikaricp_connections_pending",
+                                           "refId":  "C"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "Hikari connections"
+                   },
+                   {
+                       "id":  12,
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "s"
+                                                        },
+                                           "overrides":  [
+
+                                                         ]
+                                       },
+                       "gridPos":  {
+                                       "y":  40,
+                                       "w":  12,
+                                       "x":  12,
+                                       "h":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "legendFormat":  "{{operation}}",
+                                           "datasource":  {
+                                                              "type":  "prometheus",
+                                                              "uid":  "prometheus"
+                                                          },
+                                           "expr":  "histogram_quantile(0.99, sum by (le, operation) (rate(leaderboard_read_duration_seconds_bucket[1m])))",
+                                           "refId":  "A"
+                                       }
+                                   ],
+                       "datasource":  {
+                                          "type":  "prometheus",
+                                          "uid":  "prometheus"
+                                      },
+                       "type":  "timeseries",
+                       "title":  "Leaderboard read p99 (service)"
+                   }
+               ]
+}
