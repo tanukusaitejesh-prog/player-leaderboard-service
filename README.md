@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/tanukusaitejesh-prog/player-leaderboard-service/actions/workflows/ci.yml/badge.svg)](https://github.com/tanukusaitejesh-prog/player-leaderboard-service/actions/workflows/ci.yml)
 
-A Java 17 / Spring Boot microservice for player sessions and a real-time leaderboard. PostgreSQL is the source of truth, score events reach Kafka through a transactional outbox, and an idempotent consumer maintains a Redis sorted-set read model, so reads never touch the database. It comes with Testcontainers integration tests, a coverage gate in CI, Prometheus metrics, a Grafana dashboard, OpenTelemetry traces in Jaeger, and k6 load tests.
+A Java 25 / Spring Boot microservice for player sessions and a real-time leaderboard. PostgreSQL is the source of truth, score events reach Kafka through a transactional outbox, and an idempotent consumer maintains a Redis sorted-set read model, so reads never touch the database. It comes with Testcontainers integration tests, a coverage gate in CI, Prometheus metrics, a Grafana dashboard, OpenTelemetry traces in Jaeger, and k6 load tests.
 
 ```mermaid
 flowchart LR

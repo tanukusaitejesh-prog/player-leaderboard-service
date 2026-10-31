@@ -72,7 +72,7 @@ Add a `.gitattributes` with `* text=auto` and `*.sh text eol=lf` so Windows line
 ## 3. Preflight (run first, report results, then continue)
 
 ```powershell
-java -version                 # need 17 or newer; the project targets Java 17 (<java.version>17</java.version>)
+java -version                 # the project targets Java 25 LTS (<java.version>25</java.version>)
 git --version
 docker version                # the daemon must respond, not only the client
 docker compose version
@@ -120,7 +120,7 @@ Design intent:
 
 | Area | Choice |
 |---|---|
-| Language | Java 17 (`--release 17`) |
+| Language | Java 25 LTS (`--release 25`) |
 | Framework | Spring Boot, latest stable 3.5.x (verify on start.spring.io; if you use a different line, note it in DESIGN.md) |
 | Build | Maven + wrapper |
 | DB | PostgreSQL 16 (pin the exact image tag), Flyway migrations, Spring Data JPA (or JdbcTemplate for the outbox queries) |
@@ -382,7 +382,7 @@ Run each gate and paste its real output into the session. A milestone is done on
 
 Create `docs/RESUME_NUMBERS.md` with the **measured** values and the final resume text. Current wording on the resume, with placeholders:
 
-> **Player Session and Leaderboard Microservice** — Java 17, Spring Boot, Kafka, PostgreSQL, Redis, Docker, GitHub Actions · GitHub (links to `https://github.com/tanukusaitejesh-prog/player-leaderboard-service`, already on the resume)
+> **Player Session and Leaderboard Microservice** — Java 25, Spring Boot, Kafka, PostgreSQL, Redis, Docker, GitHub Actions · GitHub (links to `https://github.com/tanukusaitejesh-prog/player-leaderboard-service`, already on the resume)
 > - Built and deployed a Java microservice for player sessions and a real-time leaderboard: PostgreSQL (SQL) as source of truth, score events published to Kafka through a transactional outbox, and an idempotent consumer maintaining a Redis (NoSQL) sorted-set read model for low-latency reads.
 > - Kept code quality and testability high: unit and Testcontainers integration tests with an automated coverage gate ([X]%) in a GitHub Actions CI/CD pipeline; containerised with Docker.
 > - Implemented observability (Micrometer/Prometheus metrics, Grafana dashboard, OpenTelemetry traces) and analysed performance and scale with k6 load tests: [X] req/s at p99 [Y] ms.
