@@ -68,6 +68,28 @@ jobs:
           jq '[.data[] | {traceID, spans: [.spans[] | {operationName, durationUs: .duration}]}] | max_by(.spans | length)' \
             "$OUT/jaeger-score-traces.json" | tee "$OUT/jaeger-trace-summary.json"
 
+      - name: Screenshot the trace
+        run: |
+          mkdir -p /tmp/shots && cd /tmp/shots
+          npm init -y > /dev/null
+          npm install --silent playwright@1.64.1
+          npx playwright install --with-deps chromium > /dev/null
+          cat > trace.js <<'EOF'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+          const out = process.env.GITHUB_WORKSPACE + '/' + process.env.OUT;
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage({ viewport: { width: 1600, height: 700 } });
+            const id = fs.readFileSync(`${out}/trace-id.txt`, 'utf8').trim();
+            await page.goto(`http://localhost:16686/trace/${id}`);
+            await page.waitForTimeout(8000);
+            await page.screenshot({ path: `${out}/jaeger-trace.png` });
+            await browser.close();
+          })();
+          EOF
+          node trace.js
+
       - name: Run k6
         if: ${{ inputs.runs != '0' }}
         run: |
@@ -102,27 +124,28 @@ jobs:
             echo "dead lettered"; prom 'leaderboard_consumer_deadlettered_total'
           } | tee "$OUT/prometheus-peaks.txt"
 
-      - name: Take screenshots
+      - name: Record container state
         if: always()
         run: |
-          mkdir -p /tmp/shots && cd /tmp/shots
-          npm init -y > /dev/null
-          npm install --silent playwright@1.49.1
-          npx playwright install --with-deps chromium > /dev/null
+          docker compose --profile app --profile observability ps -a | tee "$OUT/compose-ps.txt"
+          docker compose --profile app logs --no-color app | grep -c 'Failed to export spans' | tee "$OUT/span-export-failures.txt" || true
+
+      - name: Screenshot the dashboard
+        if: always()
+        run: |
+          cd /tmp/shots
           cat > shoot.js <<'EOF'
           const { chromium } = require('playwright');
-          const fs = require('fs');
           const out = process.env.GITHUB_WORKSPACE + '/' + process.env.OUT;
           (async () => {
             const browser = await chromium.launch();
-            const page = await browser.newPage({ viewport: { width: 1600, height: 1400 } });
+            const page = await browser.newPage({ viewport: { width: 1600, height: 2400 } });
+            page.on('pageerror', (e) => console.log('page error:', e.message));
             await page.goto('http://localhost:3000/d/leaderboard?orgId=1&from=now-30m&to=now&kiosk');
+            await page.locator('canvas').first().waitFor({ timeout: 60000 }).catch((e) => console.log(e.message));
             await page.waitForTimeout(15000);
-            await page.screenshot({ path: `${out}/grafana-dashboard.png`, fullPage: true });
-            const id = fs.readFileSync(`${out}/trace-id.txt`, 'utf8').trim();
-            await page.goto(`http://localhost:16686/trace/${id}`);
-            await page.waitForTimeout(8000);
-            await page.screenshot({ path: `${out}/jaeger-trace.png`, fullPage: true });
+            // A full-page capture resizes the viewport, which makes Grafana drop its panels.
+            await page.screenshot({ path: `${out}/grafana-dashboard.png` });
             await browser.close();
           })();
           EOF

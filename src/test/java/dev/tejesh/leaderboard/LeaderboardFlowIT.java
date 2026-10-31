@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -25,6 +26,7 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -208,6 +210,32 @@ class LeaderboardFlowIT extends AbstractIntegrationIT {
     assertThat(top.get(0).get("score").asInt()).isEqualTo(30);
     assertThat(top.get(1).get("playerId").asText()).isEqualTo(bob.id().toString());
     assertThat(top.get(1).get("score").asInt()).isEqualTo(20);
+  }
+
+  @Test
+  void playerNotOnTheBoardGets404() {
+    assertThat(standing(newPlayer()).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+  }
+
+  /** Regression test: each rank lookup used to open a new Redis connection and exhaust ports. */
+  @Test
+  void rankLookupsReuseTheRedisConnection() {
+    Player player = newPlayer();
+    submit(player, 1);
+    awaitScoreOnBoard(player, 1);
+
+    long before = redisConnectionsReceived();
+    for (int i = 0; i < 100; i++) {
+      standing(player);
+    }
+
+    assertThat(redisConnectionsReceived() - before).isLessThan(5);
+  }
+
+  private long redisConnectionsReceived() {
+    Properties stats =
+        redis.execute((RedisCallback<Properties>) c -> c.serverCommands().info("stats"));
+    return Long.parseLong(stats.getProperty("total_connections_received"));
   }
 
   @Test

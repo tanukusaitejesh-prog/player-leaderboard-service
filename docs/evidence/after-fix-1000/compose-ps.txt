@@ -1,0 +1,8 @@
+NAME                                      IMAGE                             COMMAND                  SERVICE      CREATED          STATUS                    PORTS
+player-leaderboard-service-app-1          player-leaderboard-service-app    "java org.springfram…"   app          11 minutes ago   Up 11 minutes (healthy)   0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+player-leaderboard-service-grafana-1      grafana/grafana:12.4.14           "/run.sh"                grafana      11 minutes ago   Up 11 minutes             0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+player-leaderboard-service-jaeger-1       jaegertracing/all-in-one:1.76.0   "/go/bin/all-in-one-…"   jaeger       11 minutes ago   Up 11 minutes             4317-4318/tcp, 9411/tcp, 14250/tcp, 14268/tcp, 0.0.0.0:16686->16686/tcp, [::]:16686->16686/tcp
+player-leaderboard-service-kafka-1        apache/kafka:3.9.2                "/__cacert_entrypoin…"   kafka        11 minutes ago   Up 11 minutes (healthy)   9092/tcp, 0.0.0.0:29092->29092/tcp, [::]:29092->29092/tcp
+player-leaderboard-service-postgres-1     postgres:16.15-alpine             "docker-entrypoint.s…"   postgres     11 minutes ago   Up 11 minutes (healthy)   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+player-leaderboard-service-prometheus-1   prom/prometheus:v3.15.1           "/bin/prometheus --c…"   prometheus   11 minutes ago   Up 11 minutes             0.0.0.0:9090->9090/tcp, [::]:9090->9090/tcp
+player-leaderboard-service-redis-1        redis:7.4.12-alpine               "docker-entrypoint.s…"   redis        11 minutes ago   Up 11 minutes (healthy)   0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp

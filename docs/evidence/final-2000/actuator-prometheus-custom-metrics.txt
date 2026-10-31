@@ -1,0 +1,7 @@
+leaderboard_consumer_deadlettered_total 0.0
+leaderboard_consumer_processed_total 3.0
+leaderboard_read_duration_seconds_count{operation="standing"} 1
+leaderboard_read_duration_seconds_count{operation="top"} 3
+leaderboard_scores_submitted_total 3.0
+outbox_pending 0.0
+outbox_publish_failures_total 0.0

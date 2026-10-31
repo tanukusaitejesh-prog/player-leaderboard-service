@@ -2,7 +2,6 @@ package dev.tejesh.leaderboard.leaderboard;
 
 import dev.tejesh.leaderboard.leaderboard.dto.LeaderboardEntry;
 import dev.tejesh.leaderboard.leaderboard.dto.PlayerStanding;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -11,8 +10,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import org.springframework.data.redis.connection.RedisConnection;
-import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -32,6 +29,22 @@ public class RedisLeaderboardStore implements LeaderboardStore {
           return 1
           """,
           Long.class);
+
+  /**
+   * A script rather than a pipeline. Spring pipelines need a dedicated connection, and without a
+   * pool that means a new TCP connection per call, which ran out of ports under load.
+   */
+  @SuppressWarnings("rawtypes")
+  private static final RedisScript<List> STANDING =
+      RedisScript.of(
+          """
+          local rank = redis.call('ZREVRANK', KEYS[1], ARGV[1])
+          if not rank then
+            return {}
+          end
+          return {rank, redis.call('ZSCORE', KEYS[1], ARGV[1])}
+          """,
+          List.class);
 
   private final StringRedisTemplate redis;
 
@@ -80,27 +93,13 @@ public class RedisLeaderboardStore implements LeaderboardStore {
 
   @Override
   public Optional<PlayerStanding> standing(String gameId, UUID playerId) {
-    byte[] key = boardKey(gameId).getBytes(StandardCharsets.UTF_8);
-    byte[] member = playerId.toString().getBytes(StandardCharsets.UTF_8);
-    List<Object> replies =
-        redis.executePipelined(
-            (RedisCallback<Object>)
-                connection -> {
-                  pipelineRankAndScore(connection, key, member);
-                  return null;
-                });
-
-    if (replies.size() < 2 || replies.get(0) == null || replies.get(1) == null) {
+    List<?> reply = redis.execute(STANDING, List.of(boardKey(gameId)), playerId.toString());
+    if (reply == null || reply.isEmpty()) {
       return Optional.empty();
     }
-    long zeroBasedRank = ((Number) replies.get(0)).longValue();
-    long score = ((Number) replies.get(1)).longValue();
+    long zeroBasedRank = Long.parseLong(reply.get(0).toString());
+    long score = (long) Double.parseDouble(reply.get(1).toString());
     return Optional.of(new PlayerStanding(zeroBasedRank + 1, score));
-  }
-
-  private static void pipelineRankAndScore(RedisConnection connection, byte[] key, byte[] member) {
-    connection.zSetCommands().zRevRank(key, member);
-    connection.zSetCommands().zScore(key, member);
   }
 
   @Override
