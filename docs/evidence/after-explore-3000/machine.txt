@@ -1,0 +1,7 @@
+CPU(s):                                  4
+Model name:                              AMD EPYC 7763 64-Core Processor
+               total        used        free      shared  buff/cache   available
+Mem:            15Gi       910Mi        14Gi        40Mi       864Mi        14Gi
+Linux 7.0.0-1017-azure
+Docker 29.4.2
+commit a49680a50f2c88eeafc80da453649aa9893daae0

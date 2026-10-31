@@ -1,0 +1,18 @@
+outbox_pending peak
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"instance":"app:8080","job":"leaderboard"},"value":[1793427591.322,"45"]}]}}
+consumer lag peak
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"client_id":"consumer-leaderboard-updater-1","instance":"app:8080","job":"leaderboard","kafka_version":"3.9.2","spring_id":"kafkaConsumerFactory.consumer-leaderboard-updater-1"},"value":[1793427591.328,"0"]},{"metric":{"client_id":"consumer-leaderboard-updater-2","instance":"app:8080","job":"leaderboard","kafka_version":"3.9.2","spring_id":"kafkaConsumerFactory.consumer-leaderboard-updater-2"},"value":[1793427591.328,"0"]},{"metric":{"client_id":"consumer-leaderboard-updater-3","instance":"app:8080","job":"leaderboard","kafka_version":"3.9.2","spring_id":"kafkaConsumerFactory.consumer-leaderboard-updater-3"},"value":[1793427591.328,"0"]},{"metric":{"client_id":"consumer-leaderboard-updater-1","instance":"app:8080","job":"leaderboard","kafka_version":"3.9.2","partition":"0","spring_id":"kafkaConsumerFactory.consumer-leaderboard-updater-1","topic":"score-events"},"value":[1793427591.328,"808"]},{"metric":{"client_id":"consumer-leaderboard-updater-2","instance":"app:8080","job":"leaderboard","kafka_version":"3.9.2","partition":"2","spring_id":"kafkaConsumerFactory.consumer-leaderboard-updater-2","topic":"score-events"},"value":[1793427591.328,"0"]},{"metric":{"client_id":"consumer-leaderboard-updater-3","instance":"app:8080","job":"leaderboard","kafka_version":"3.9.2","partition":"4","spring_id":"kafkaConsumerFactory.consumer-leaderboard-updater-3","topic":"score-events"},"value":[1793427591.328,"0"]},{"metric":{"client_id":"consumer-leaderboard-updater-3","instance":"app:8080","job":"leaderboard","kafka_version":"3.9.2","partition":"5","spring_id":"kafkaConsumerFactory.consumer-leaderboard-updater-3","topic":"score-events"},"value":[1793427591.328,"0"]}]}}
+hikari pending peak
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"instance":"app:8080","job":"leaderboard","pool":"HikariPool-1"},"value":[1793427591.334,"7"]}]}}
+hikari active peak
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"instance":"app:8080","job":"leaderboard","pool":"HikariPool-1"},"value":[1793427591.340,"10"]}]}}
+process cpu peak
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"instance":"app:8080","job":"leaderboard"},"value":[1793427591.346,"1"]}]}}
+system cpu peak
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"instance":"app:8080","job":"leaderboard"},"value":[1793427591.352,"0.9888912122954676"]}]}}
+gc pause seconds per second peak
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"action":"end of minor GC","cause":"Allocation Failure","gc":"Copy","instance":"app:8080","job":"leaderboard"},"value":[1793427591.358,"0.0422"]},{"metric":{"action":"end of major GC","cause":"Metadata GC Threshold","gc":"MarkSweepCompact","instance":"app:8080","job":"leaderboard"},"value":[1793427591.358,"0"]},{"metric":{"action":"end of major GC","cause":"Allocation Failure","gc":"MarkSweepCompact","instance":"app:8080","job":"leaderboard"},"value":[1793427591.358,"0.01089090909090909"]}]}}
+outbox failures
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"outbox_publish_failures_total","instance":"app:8080","job":"leaderboard"},"value":[1793427591.364,"0"]}]}}
+dead lettered
+{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"leaderboard_consumer_deadlettered_total","instance":"app:8080","job":"leaderboard"},"value":[1793427591.370,"0"]}]}}

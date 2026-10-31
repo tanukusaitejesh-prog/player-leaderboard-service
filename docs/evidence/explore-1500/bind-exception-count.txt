@@ -1,0 +1,3 @@
+BindException log lines in the last 300 app log lines of the 1500/s run: 294
+Servlet.service() for servlet [dispatcherServlet] in context with path [] threw exception [Request processing failed: org.springframework.data.redis.RedisConnectionFailureException: Unable to connect to Redis] with root cause","error":{"type":"java.net.BindExc
+java.net.BindException: Cannot assign requested address
