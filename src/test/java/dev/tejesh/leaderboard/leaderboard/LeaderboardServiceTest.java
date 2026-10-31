@@ -14,7 +14,8 @@ import org.junit.jupiter.api.Test;
 class LeaderboardServiceTest {
 
   private final FakeLeaderboardStore store = new FakeLeaderboardStore();
-  private final LeaderboardService service = new LeaderboardService(store);
+  private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+  private final LeaderboardService service = new LeaderboardService(store, meters);
 
   private final UUID alice = UUID.randomUUID();
   private final UUID bob = UUID.randomUUID();
@@ -31,6 +32,8 @@ class LeaderboardServiceTest {
         .containsExactly(
             new LeaderboardEntry(1, bob, "bob", 20), new LeaderboardEntry(2, alice, "alice", 10));
     assertThat(service.top("g", 1)).hasSize(1);
+    assertThat(meters.get("leaderboard.read.duration").tag("operation", "top").timer().count())
+        .isEqualTo(2);
   }
 
   @Test

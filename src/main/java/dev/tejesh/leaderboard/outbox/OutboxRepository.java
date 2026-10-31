@@ -19,18 +19,22 @@ public class OutboxRepository {
 
   public void insert(OutboxEvent event) {
     jdbc.update(
-        "INSERT INTO outbox_events (id, topic, event_key, payload) VALUES (?, ?, ?, ?::jsonb)",
+        """
+        INSERT INTO outbox_events (id, topic, event_key, payload, trace_parent)
+        VALUES (?, ?, ?, ?::jsonb, ?)
+        """,
         event.id(),
         event.topic(),
         event.eventKey(),
-        event.payload());
+        event.payload(),
+        event.traceParent());
   }
 
   /** Must run inside a transaction; the row locks are what keep other publishers away. */
   public List<OutboxEvent> lockUnpublished(int limit) {
     return jdbc.query(
         """
-        SELECT id, topic, event_key, payload::text AS payload
+        SELECT id, topic, event_key, payload::text AS payload, trace_parent
         FROM outbox_events
         WHERE published_at IS NULL
         ORDER BY created_at
@@ -43,6 +47,7 @@ public class OutboxRepository {
                 .topic(rs.getString("topic"))
                 .eventKey(rs.getString("event_key"))
                 .payload(rs.getString("payload"))
+                .traceParent(rs.getString("trace_parent"))
                 .build(),
         limit);
   }

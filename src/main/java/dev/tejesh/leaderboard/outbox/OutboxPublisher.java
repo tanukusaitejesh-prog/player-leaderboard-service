@@ -1,5 +1,10 @@
 package dev.tejesh.leaderboard.outbox;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,6 +35,8 @@ public class OutboxPublisher {
   private final OutboxRepository outbox;
   private final KafkaTemplate<String, String> kafka;
   private final TransactionOperations transactions;
+  private final Tracer tracer;
+  private final Counter failures;
   private final int batchSize;
   private final long ackTimeoutMs;
 
@@ -37,13 +44,18 @@ public class OutboxPublisher {
       OutboxRepository outbox,
       KafkaTemplate<String, String> kafka,
       TransactionOperations transactions,
+      Tracer tracer,
+      MeterRegistry registry,
       @Value("${outbox.batch-size:100}") int batchSize,
       @Value("${outbox.ack-timeout-ms:15000}") long ackTimeoutMs) {
     this.outbox = outbox;
     this.kafka = kafka;
     this.transactions = transactions;
+    this.tracer = tracer;
+    this.failures = registry.counter("outbox.publish.failures");
     this.batchSize = batchSize;
     this.ackTimeoutMs = ackTimeoutMs;
+    Gauge.builder("outbox.pending", outbox, OutboxRepository::countPending).register(registry);
   }
 
   @Scheduled(fixedDelayString = "${outbox.poll-delay-ms:200}")
@@ -73,12 +85,17 @@ public class OutboxPublisher {
       List<OutboxEvent> batch) {
     Map<UUID, CompletableFuture<SendResult<String, String>>> sends = new LinkedHashMap<>();
     for (OutboxEvent event : batch) {
-      try {
+      Span span = TraceParents.startChild(tracer, event.traceParent(), "outbox.publish");
+      try (Tracer.SpanInScope scope = tracer.withSpan(span)) {
         sends.put(event.id(), kafka.send(event.topic(), event.eventKey(), event.payload()));
       } catch (RuntimeException e) {
         // The broker is unreachable; the rest would each block for max.block.ms too.
+        span.error(e);
+        failures.increment();
         log.warn("Stopping outbox batch, send failed for event {}", event.id(), e);
         break;
+      } finally {
+        span.end();
       }
     }
     return sends;
@@ -91,6 +108,7 @@ public class OutboxPublisher {
         send.getValue().get(ackTimeoutMs, TimeUnit.MILLISECONDS);
         acked.add(send.getKey());
       } catch (ExecutionException | TimeoutException e) {
+        failures.increment();
         log.warn("No ack for outbox event {}, will retry", send.getKey(), e);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();

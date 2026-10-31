@@ -3,7 +3,8 @@ package dev.tejesh.leaderboard.outbox;
 import java.util.Objects;
 import java.util.UUID;
 
-public record OutboxEvent(UUID id, String topic, String eventKey, String payload) {
+public record OutboxEvent(
+    UUID id, String topic, String eventKey, String payload, String traceParent) {
 
   public static Builder builder() {
     return new Builder();
@@ -14,6 +15,7 @@ public record OutboxEvent(UUID id, String topic, String eventKey, String payload
     private String topic;
     private String eventKey;
     private String payload;
+    private String traceParent;
 
     private Builder() {}
 
@@ -37,12 +39,18 @@ public record OutboxEvent(UUID id, String topic, String eventKey, String payload
       return this;
     }
 
+    public Builder traceParent(String traceParent) {
+      this.traceParent = traceParent;
+      return this;
+    }
+
     public OutboxEvent build() {
       return new OutboxEvent(
           Objects.requireNonNull(id, "id"),
           Objects.requireNonNull(topic, "topic"),
           Objects.requireNonNull(eventKey, "eventKey"),
-          Objects.requireNonNull(payload, "payload"));
+          Objects.requireNonNull(payload, "payload"),
+          traceParent);
     }
   }
 }

@@ -22,6 +22,9 @@ import dev.tejesh.leaderboard.session.GameSession;
 import dev.tejesh.leaderboard.session.GameSessionRepository;
 import dev.tejesh.leaderboard.web.ConflictException;
 import dev.tejesh.leaderboard.web.NotFoundException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.tracing.Tracer;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -39,13 +42,20 @@ class ScoreServiceTest {
   private final GameSessionRepository sessions = mock(GameSessionRepository.class);
   private final PlayerRepository players = mock(PlayerRepository.class);
   private final OutboxRepository outbox = mock(OutboxRepository.class);
+  private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
   private final ObjectMapper json =
       JsonMapper.builder()
           .addModule(new JavaTimeModule())
           .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
           .build();
   private final ScoreService service =
-      new ScoreService(scores, sessions, players, outbox, json, Clock.fixed(NOW, ZoneOffset.UTC));
+      new ScoreService(
+          scores,
+          sessions,
+          new ScoreEventOutbox(outbox, players, json, Tracer.NOOP),
+          Clock.fixed(NOW, ZoneOffset.UTC),
+          registry,
+          ObservationRegistry.NOOP);
 
   private final UUID playerId = UUID.randomUUID();
   private final GameSession session = new GameSession(UUID.randomUUID(), playerId, "tetris", NOW);
@@ -64,6 +74,7 @@ class ScoreServiceTest {
     assertThat(result.score().getGameId()).isEqualTo("tetris");
     assertThat(result.score().getPoints()).isEqualTo(100);
     assertThat(result.score().getSubmittedAt()).isEqualTo(NOW);
+    assertThat(registry.counter("leaderboard.scores.submitted").count()).isEqualTo(1.0);
 
     ArgumentCaptor<OutboxEvent> event = ArgumentCaptor.forClass(OutboxEvent.class);
     verify(outbox).insert(event.capture());

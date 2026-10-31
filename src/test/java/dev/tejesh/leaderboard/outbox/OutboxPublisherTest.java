@@ -9,6 +9,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.tracing.Tracer;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -21,12 +23,14 @@ import org.springframework.transaction.support.TransactionOperations;
 class OutboxPublisherTest {
 
   private final OutboxRepository outbox = mock(OutboxRepository.class);
+  private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
 
   @SuppressWarnings("unchecked")
   private final KafkaTemplate<String, String> kafka = mock(KafkaTemplate.class);
 
   private final OutboxPublisher publisher =
-      new OutboxPublisher(outbox, kafka, TransactionOperations.withoutTransaction(), 100, 50);
+      new OutboxPublisher(
+          outbox, kafka, TransactionOperations.withoutTransaction(), Tracer.NOOP, meters, 100, 50);
 
   private final OutboxEvent first = event("a");
   private final OutboxEvent second = event("b");
@@ -74,6 +78,7 @@ class OutboxPublisherTest {
     assertThat(publisher.publishBatch()).isEqualTo(1);
 
     verify(outbox).markPublished(List.of(second.id()));
+    assertThat(meters.counter("outbox.publish.failures").count()).isEqualTo(1.0);
   }
 
   @Test
@@ -94,6 +99,7 @@ class OutboxPublisherTest {
     assertThat(publisher.publishBatch()).isZero();
 
     verify(kafka, times(1)).send(any(String.class), any(String.class), any(String.class));
+    assertThat(meters.counter("outbox.publish.failures").count()).isEqualTo(1.0);
     verify(outbox, never()).markPublished(any());
   }
 }

@@ -1,15 +1,13 @@
 package dev.tejesh.leaderboard.score;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.tejesh.leaderboard.config.KafkaTopics;
-import dev.tejesh.leaderboard.outbox.OutboxEvent;
-import dev.tejesh.leaderboard.outbox.OutboxRepository;
-import dev.tejesh.leaderboard.player.PlayerRepository;
 import dev.tejesh.leaderboard.session.GameSession;
 import dev.tejesh.leaderboard.session.GameSessionRepository;
 import dev.tejesh.leaderboard.web.ConflictException;
 import dev.tejesh.leaderboard.web.NotFoundException;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import java.time.Clock;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,24 +19,24 @@ public class ScoreService {
 
   private final ScoreRepository scores;
   private final GameSessionRepository sessions;
-  private final PlayerRepository players;
-  private final OutboxRepository outbox;
-  private final ObjectMapper json;
+  private final ScoreEventOutbox events;
   private final Clock clock;
+  private final Counter submitted;
+  private final ObservationRegistry observations;
 
   public ScoreService(
       ScoreRepository scores,
       GameSessionRepository sessions,
-      PlayerRepository players,
-      OutboxRepository outbox,
-      ObjectMapper json,
-      Clock clock) {
+      ScoreEventOutbox events,
+      Clock clock,
+      MeterRegistry registry,
+      ObservationRegistry observations) {
     this.scores = scores;
     this.sessions = sessions;
-    this.players = players;
-    this.outbox = outbox;
-    this.json = json;
+    this.events = events;
     this.clock = clock;
+    this.submitted = registry.counter("leaderboard.scores.submitted");
+    this.observations = observations;
   }
 
   @Transactional
@@ -61,6 +59,12 @@ public class ScoreService {
             idempotencyKey,
             clock.instant());
 
+    return Observation.createNotStarted("score.persist", observations)
+        .lowCardinalityKeyValue("db.system", "postgresql")
+        .observe(() -> persist(score));
+  }
+
+  private ScoreSubmission persist(Score score) {
     int inserted =
         scores.insertIfAbsent(
             score.getId(),
@@ -72,25 +76,13 @@ public class ScoreService {
             score.getSubmittedAt());
     if (inserted == 0) {
       // Lost a race with a concurrent request using the same key; that request's row is committed.
-      return new ScoreSubmission(scores.findByIdempotencyKey(idempotencyKey).orElseThrow(), false);
+      return new ScoreSubmission(
+          scores.findByIdempotencyKey(score.getIdempotencyKey()).orElseThrow(), false);
     }
     // Same transaction as the score row: both commit or neither does.
-    outbox.insert(toOutboxEvent(score));
+    events.append(score);
+    submitted.increment();
     return new ScoreSubmission(score, true);
-  }
-
-  private OutboxEvent toOutboxEvent(Score score) {
-    String username = players.findById(score.getPlayerId()).orElseThrow().getUsername();
-    try {
-      return OutboxEvent.builder()
-          .id(UUID.randomUUID())
-          .topic(KafkaTopics.SCORE_EVENTS)
-          .eventKey(score.getGameId())
-          .payload(json.writeValueAsString(ScoreSubmittedEvent.of(score, username)))
-          .build();
-    } catch (JsonProcessingException e) {
-      throw new IllegalStateException("Could not serialize event for score " + score.getId(), e);
-    }
   }
 
   private GameSession requireWritableSession(UUID sessionId, UUID playerId) {
